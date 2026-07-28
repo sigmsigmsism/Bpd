@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mirror</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:#ccc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+.container{max-width:640px;margin:0 auto;padding:40px 24px}
+h1{color:#fff;font-size:1.5rem;font-weight:300;letter-spacing:1px;margin-bottom:2px}
+h2{color:#555;font-size:0.7rem;font-weight:400;letter-spacing:2px;text-transform:uppercase;margin:24px 0 10px}
+p{color:#555;font-size:0.85rem;margin-bottom:16px}
+.page{display:none}
+.page.active{display:block}
+label{display:block;color:#555;font-size:0.65rem;letter-spacing:1px;text-transform:uppercase;margin:10px 0 3px}
+select,input{width:100%;padding:9px 10px;background:#080808;border:1px solid #1a1a1a;color:#ccc;font-size:0.85rem;outline:none}
+select:focus,input:focus{border-color:#333}
+button{padding:9px 18px;background:#111;border:1px solid #222;color:#999;cursor:pointer;font-size:0.8rem;margin-right:4px;margin-top:4px}
+button:hover{background:#181818;border-color:#444}
+button.primary{background:#1a1a1a;border-color:#444;color:#fff;padding:10px 24px}
+button.primary:hover{background:#222}
+button.danger{border-color:#331;color:#755}
+button.danger:hover{background:#0a0505}
+button.small{padding:5px 12px;font-size:0.7rem}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;margin:10px 0}
+th,td{padding:7px 8px;text-align:left;border-bottom:1px solid #111}
+th{color:#333;font-size:0.65rem;font-weight:400;letter-spacing:1px;text-transform:uppercase}
+.inline-group{display:flex;gap:6px}
+.inline-group input{flex:1}
+.tag-list{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.tag{background:#0a0a0a;border:1px solid #1a1a1a;padding:3px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px}
+.tag button{background:none;border:none;color:#755;cursor:pointer;padding:0;font-size:0.7rem}
+.samples{display:flex;flex-wrap:wrap;gap:4px}
+.samples span{background:#050505;border:1px solid #181818;padding:4px 10px;font-size:0.75rem;cursor:pointer;color:#666}
+.samples span:hover{border-color:#333;color:#aaa}
+.badge{border:1px solid #222;padding:10px 14px;text-align:center;font-size:0.75rem;letter-spacing:1px;margin:10px 0}
+.badge.edgy{border-color:#422;color:#b55}
+.badge.helper{border-color:#242;color:#5b5}
+.badge.balanced{border-color:#442;color:#bb5}
+.topic-grid{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.topic-card{background:#080808;border:1px solid #1a1a1a;border-left:3px solid #333;padding:8px 14px;font-size:0.8rem;color:#888}
+.topic-card.edgy{border-left-color:#533}
+.topic-card.helper{border-left-color:#353}
+.empty{color:#333;font-style:italic;font-size:0.8rem;margin:12px 0}
+hr{border:none;border-top:1px solid #111;margin:20px 0}
+.nav{display:flex;gap:6px;margin-top:16px;flex-wrap:wrap}
+.summary{background:#080808;border:1px solid #151515;padding:10px 14px;margin:10px 0;font-size:0.8rem;color:#777}
+.profile-header{border:1px solid #151515;padding:20px;margin-bottom:20px}
+.profile-header h1{font-size:1.8rem;font-weight:200;letter-spacing:4px}
+.profile-header p{color:#444;font-size:0.75rem;margin:4px 0 0}
+.cards{display:flex;gap:10px;margin:24px 0}
+.card{flex:1;min-width:180px;background:#0a0a0a;border:1px solid #1a1a1a;padding:20px;cursor:pointer}
+.card:hover{border-color:#333}
+.card h2{color:#fff;font-size:0.9rem;margin:0 0 6px;text-transform:none;letter-spacing:0}
+.card p{color:#444;font-size:0.75rem;margin:0}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div id="page-home" class="page active">
+<h1>Mirror</h1>
+<p>for people who borrow personalities</p>
+<div class="cards">
+<div class="card" onclick="go('tracker')"><h2>Mood Log</h2><p>Track weekend moods</p></div>
+<div class="card" onclick="go('finder')"><h2>Finder</h2><p>Tag yourself → topics</p></div>
+</div>
+<p style="margin-top:12px;color:#444;font-size:0.75rem;text-align:center">
+logged in as <strong id="currentUser" style="color:#777">none</strong>
+&middot; <a href="#" onclick="logout()" style="color:#444;text-decoration:none;border-bottom:1px solid #1a1a1a">leave</a>
+&middot; <a href="#" onclick="showUserSearch()" style="color:#444;text-decoration:none;border-bottom:1px solid #1a1a1a">find people</a>
+</p>
+</div>
+
+<div id="page-login" class="page">
+<h1>Choose a username</h1>
+<p>letters, numbers, underscores only</p>
+<hr>
+<label>username</label>
+<div class="inline-group">
+<input type="text" id="loginInput" placeholder="your handle" maxlength="20" onkeydown="if(event.key==='Enter')register()">
+<button class="primary" onclick="register()">enter</button>
+</div>
+<div id="loginError" class="empty"></div>
+</div>
+
+<div id="page-tracker" class="page">
+<h1>Mood Log</h1>
+<p>log saturday & sunday moods</p>
+<hr>
+<label>day</label>
+<select id="day"><option>Saturday</option><option>Sunday</option></select>
+<label>time</label>
+<select id="time"><option>Morning</option><option>Afternoon</option><option>Evening</option><option>Late Night</option></select>
+<label>mood</label>
+<select id="mood">
+<option>energetic</option><option>agitated</option><option>chill</option><option>sad</option>
+<option>anxious</option><option>bored</option><option>helpful</option><option>focused</option><option>lonely</option>
+</select>
+<label>note</label>
+<div class="inline-group">
+<input type="text" id="note" placeholder="what happened">
+<button onclick="logMood()">Log</button>
+</div>
+<hr>
+<h2>This weekend</h2>
+<div id="moodList"><p class="empty">loading...</p></div>
+<div class="nav">
+<button class="small" onclick="go('home')">Back</button>
+<button class="small danger" onclick="clearLog()">Clear</button>
+</div>
+</div>
+
+<div id="page-finder" class="page">
+<h1>Finder</h1>
+<p>tags → matched interest clusters</p>
+<hr>
+<div class="inline-group">
+<input type="text" id="tagInput" placeholder="e.g. not sensitive" onkeydown="if(event.key==='Enter')addTag()">
+<button onclick="addTag()">Add</button>
+</div>
+<div id="tagList" class="tag-list"></div>
+<button class="primary" onclick="find()">Find My Topics</button>
+<div id="results"></div>
+<hr>
+<h2>Try these</h2>
+<div class="samples">
+<span onclick="quickTag(this)">not sensitive</span>
+<span onclick="quickTag(this)">hate sensitive</span>
+<span onclick="quickTag(this)">helping others</span>
+<span onclick="quickTag(this)">competitive</span>
+<span onclick="quickTag(this)">sensitive</span>
+<span onclick="quickTag(this)">giving away</span>
+<span onclick="quickTag(this)">empathetic</span>
+<span onclick="quickTag(this)">independent</span>
+</div>
+<div class="nav">
+<button class="small" onclick="go('home')">Back</button>
+<button class="small" onclick="go('tracker')">Mood Log</button>
+</div>
+</div>
+
+<div id="page-search" class="page">
+<h1>Find People</h1>
+<p>search by username</p>
+<hr>
+<input type="text" id="searchInput" placeholder="type a username..." onkeyup="searchUsers()" autocomplete="off">
+<ul id="searchResults" style="list-style:none;margin-top:10px"></ul>
+<div class="nav">
+<button class="small" onclick="go('home')">Back</button>
+</div>
+</div>
+
+<div id="page-profile" class="page">
+<div id="profileContent"></div>
+<div class="nav">
+<button class="small" onclick="go('home')">Back</button>
+</div>
+</div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+var currentUser = localStorage.getItem('mirror_user') || '';
+
+function showPage(id){
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active') });
+  document.getElementById('page-'+id).classList.add('active');
+  if(id === 'tracker') loadMoods();
+  if(id === 'home') document.getElementById('currentUser').textContent = currentUser || 'none';
+}
+
+function go(id){
+  if(!currentUser && id !== 'login' && id !== 'search' && id !== 'profile'){
+    showPage('login');
+    return;
+  }
+  showPage(id);
+}
+
+if(currentUser){
+  showPage('home');
+} else {
+  showPage('login');
+}
+
+async function register(){
+  var inp = document.getElementById('loginInput');
+  var err = document.getElementById('loginError');
+  var val = inp.value.trim().toLowerCase();
+  if(!val || val.length < 2){ err.textContent = 'min 2 characters'; return; }
+  if(!/^[a-z0-9_]+$/.test(val)){ err.textContent = 'letters, numbers, underscores only'; return; }
+
+  var { data: existing } = await supabase.from('users').select('username').eq('username', val).maybeSingle();
+  if(existing){ err.textContent = 'username taken'; return; }
+
+  var { error } = await supabase.from('users').insert({ username: val });
+  if(error){ err.textContent = error.message; return; }
+
+  currentUser = val;
+  localStorage.setItem('mirror_user', val);
+  err.textContent = '';
+  inp.value = '';
+  showPage('home');
+}
+
+function logout(){
+  currentUser = '';
+  localStorage.removeItem('mirror_user');
+  showPage('login');
+}
+
+async function logMood(){
+  var day = document.getElementById('day').value;
+  var time = document.getElementById('time').value;
+  var mood = document.getElementById('mood').value;
+  var note = document.getElementById('note').value.trim();
+  await supabase.from('moods').insert({
+    username: currentUser, day: day, time_block: time, mood: mood, note: note
+  });
+  document.getElementById('note').value = '';
+  loadMoods();
+}
+
+async function loadMoods(){
+  var div = document.getElementById('moodList');
+  var { data: moods } = await supabase.from('moods')
+    .select('*').eq('username', currentUser).order('created_at', { ascending: false });
+  if(!moods || !moods.length){ div.innerHTML = '<p class="empty">no entries</p>'; return; }
+  var h = '<table><tr><th>Day</th><th>Time</th><th>Mood</th><th>Note</th><th></th></tr>';
+  moods.forEach(function(m){
+    h += '<tr><td>'+m.day+'</td><td>'+m.time_block+'</td><td><span class="tag">'+m.mood+'</span></td><td>'+(m.note||'—')+'</td><td><button class="small danger" onclick="delMood('+m.id+')">X</button></td></tr>';
+  });
+  h += '</table>';
+  var counts = {};
+  moods.forEach(function(m){ counts[m.mood] = (counts[m.mood]||0)+1 });
+  var sorted = Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a] });
+  if(sorted.length) h += '<div class="summary">most frequent: <strong>'+sorted[0]+'</strong> ('+counts[sorted[0]]+')</div>';
+  div.innerHTML = h;
+}
+
+async function delMood(id){
+  if(!confirm('delete entry?')) return;
+  await supabase.from('moods').delete().eq('id', id).eq('username', currentUser);
+  loadMoods();
+}
+
+async function clearLog(){
+  if(!confirm('delete all moods?')) return;
+  await supabase.from('moods').delete().eq('username', currentUser);
+  loadMoods();
+}
+
+var tags = [];
+function addTag(){
+  var inp = document.getElementById('tagInput');
+  var val = inp.value.trim().toLowerCase();
+  if(!val || tags.indexOf(val) !== -1){ inp.value = ''; return; }
+  tags.push(val); inp.value = ''; renderTags();
+}
+function quickTag(el){
+  var val = el.textContent.trim().toLowerCase();
+  if(tags.indexOf(val) === -1){ tags.push(val); renderTags(); }
+}
+function removeTag(t){ tags = tags.filter(function(x){ return x !== t; }); renderTags(); }
+function renderTags(){
+  var div = document.getElementById('tagList');
+  if(!tags.length){ div.innerHTML = ''; return; }
+  div.innerHTML = tags.map(function(t){
+    return '<span class="tag">'+t+' <button onclick="removeTag(\''+t.replace(/'/g,"\\'")+'\')">X</button></span>';
+  }).join('');
+}
+
+async function find(){
+  var div = document.getElementById('results');
+  if(!tags.length){ div.innerHTML = '<p class="empty">add tags first</p>'; return; }
+  var { data: allMaps } = await supabase.from('tag_topics').select('*');
+  var edgy = [], helper = [], all = [];
+  tags.forEach(function(tag){
+    allMaps.forEach(function(m){
+      if(m.tag_keyword.toLowerCase().indexOf(tag) !== -1 || tag.indexOf(m.tag_keyword.toLowerCase()) !== -1){
+        if(all.indexOf(m.topic) === -1){
+          all.push(m.topic);
+          if(m.category === 'edgy') edgy.push(m.topic); else helper.push(m.topic);
+        }
+      }
+    });
+  });
+  if(!all.length){ div.innerHTML = '<p class="empty">no matches</p>'; return; }
+  var h = '';
+  if(edgy.length > helper.length) h += '<div class="badge edgy">EDGY</div>';
+  else if(helper.length > edgy.length) h += '<div class="badge helper">HELPER</div>';
+  else h += '<div class="badge balanced">BALANCED</div>';
+  h += '<div class="topic-grid">';
+  all.forEach(function(t){
+    var cls = edgy.indexOf(t) !== -1 ? 'edgy' : 'helper';
+    h += '<div class="topic-card '+cls+'">'+t+'</div>';
+  });
+  h += '</div>';
+  div.innerHTML = h;
+}
+
+async function searchUsers(){
+  var q = document.getElementById('searchInput').value.trim().toLowerCase();
+  var list = document.getElementById('searchResults');
+  if(!q || q.length < 1){ list.innerHTML = ''; return; }
+  var { data: users } = await supabase.from('users')
+    .select('username').ilike('username', '%'+q+'%').limit(20);
+  if(!users || !users.length){ list.innerHTML = '<li class="empty">no users found</li>'; return; }
+  list.innerHTML = users.map(function(u){
+    return '<li style="border-bottom:1px solid #111;padding:10px 0"><a href="#" onclick="viewProfile(\''+u.username+'\')" style="color:#888;text-decoration:none;font-size:0.9rem;letter-spacing:2px">/'+u.username+'</a></li>';
+  }).join('');
+}
+
+function showUserSearch(){
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchResults').innerHTML = '';
+  showPage('search');
+}
+
+async function viewProfile(username){
+  var { data: moods } = await supabase.from('moods')
+    .select('*').eq('username', username).order('created_at', { ascending: false });
+  var div = document.getElementById('profileContent');
+  var h = '<div class="profile-header"><h1>/'+username+'</h1><p>'+(moods?moods.length:0)+' mood entries</p></div>';
+  if(!moods || !moods.length){
+    h += '<p class="empty">no entries yet</p>';
+  } else {
+    h += '<table><tr><th>Day</th><th>Time</th><th>Mood</th><th>Note</th></tr>';
+    moods.forEach(function(m){
+      h += '<tr><td>'+m.day+'</td><td>'+m.time_block+'</td><td><span class="tag">'+m.mood+'</span></td><td>'+(m.note||'—')+'</td></tr>';
+    });
+    h += '</table>';
+  }
+  div.innerHTML = h;
+  showPage('profile');
+}
+</script>
+</body>
+</html>
